@@ -1,0 +1,22 @@
+{
+  "name": "react-native-reanimated-swipeable-example",
+  "displayName": "ReanimatedSwipeable Example",
+  "expo": {
+    "name": "react-native-reanimated-swipeable-example",
+    "slug": "react-native-reanimated-swipeable-example",
+    "description": "Example app for react-native-reanimated-swipeable",
+    "privacy": "public",
+    "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}
