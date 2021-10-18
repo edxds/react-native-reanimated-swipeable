@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View, Pressable } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { FlatList } from 'react-native-gesture-handler';
+import {
+  Swipeable,
+  SwipeableActionItem,
+  SwipeableHandle,
+} from 'react-native-reanimated-swipeable';
 
 type Item = {
   title: string;
@@ -16,7 +23,7 @@ export function List() {
     <FlatList
       data={data}
       keyExtractor={(item) => item.title}
-      renderItem={ListItem}
+      renderItem={({ item }) => <ListItem item={item} />}
       ListHeaderComponent={ListHeader}
       ListHeaderComponentStyle={data.length && styles.listTitleSpacing}
       ItemSeparatorComponent={ListDivider}
@@ -34,8 +41,53 @@ function ListHeader() {
 }
 
 function ListItem({ item }: { item: Item }) {
+  const swipeableRef = useRef<SwipeableHandle>(null);
+
+  const actionsRight = useMemo<SwipeableActionItem[]>(
+    () => [
+      {
+        key: 'delete',
+        color: '#E6171E',
+        onPress: () => {
+          swipeableRef.current.close();
+          return alert('delete');
+        },
+        render: () => (
+          <Swipeable.Action>
+            <Icon name="delete-outline" size={32} color="#E6171E" />
+          </Swipeable.Action>
+        ),
+        renderEngaged: () => (
+          <Swipeable.Action>
+            <Icon name="delete-outline" size={32} color="white" />
+          </Swipeable.Action>
+        ),
+      },
+      {
+        key: 'archive',
+        color: '#008738',
+        onPress: () => {
+          swipeableRef.current.close();
+          return alert('archive');
+        },
+        render: () => (
+          <Swipeable.Action>
+            <Icon name="archive-outline" size={32} color="#008738" />
+          </Swipeable.Action>
+        ),
+      },
+    ],
+    []
+  );
+
   return (
-    <View style={styles.item}>
+    <Swipeable
+      ref={swipeableRef}
+      style={styles.item}
+      actionSize={32 + 48}
+      actionsLeft={actionsRight}
+      actionsRight={actionsRight}
+    >
       <View style={styles.itemHeader}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemDate}>just now</Text>
@@ -46,7 +98,7 @@ function ListItem({ item }: { item: Item }) {
       <View style={styles.itemActions}>
         <ListItemAction>Share</ListItemAction>
       </View>
-    </View>
+    </Swipeable>
   );
 }
 
@@ -91,6 +143,11 @@ const styles = StyleSheet.create({
   },
   item: {
     padding: 16,
+    backgroundColor: 'white',
+  },
+  itemSwipeActionWrapper: {
+    width: 32,
+    height: 32,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -153,6 +210,6 @@ const INITIAL_DATA: Item[] = [
   },
   {
     title: 'Buy grande iced caramel macchiato',
-    description: "Saving's overrated, anyway.",
+    description: 'Saving money is overrated, anyway.',
   },
 ];
