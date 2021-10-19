@@ -54,22 +54,6 @@ export function SwipeableActionItemContainer({
 
   const gestureDeltaThresoldToEngage = totalWidth + engageThreshold;
 
-  const currentTotalWidth = useDerivedValue(() => {
-    const gestureDelta = Math.abs(gestureX.value);
-    const containerSurplus = gestureDelta - totalWidth;
-    return Math.max(totalWidth, totalWidth + containerSurplus);
-  });
-
-  const currentChunkWidth = useDerivedValue(() => {
-    const itemToContainerRatio = size / totalWidth;
-    const result = currentTotalWidth.value * itemToContainerRatio;
-    if (isNaN(result)) {
-      return size;
-    }
-
-    return Math.max(result, size);
-  });
-
   const gestureDelta = useDerivedValue(
     () => gestureX.value * (position === 'right' ? -1 : 1)
   );
@@ -82,15 +66,34 @@ export function SwipeableActionItemContainer({
     return gestureDelta.value > gestureDeltaThresoldToEngage;
   });
 
-  const willEngage = useDerivedValue(() => {
-    if (!canEngage) {
-      return;
+  const currentActionsContainerWidth = useDerivedValue(() => {
+    const containerSurplus = gestureDelta.value - totalWidth;
+    return Math.max(totalWidth, totalWidth + containerSurplus);
+  });
+
+  const baseWidthRatio = size / totalWidth;
+  const currentWidthRatio = useDerivedValue(() => {
+    if (isEngaged.value) {
+      return 1;
     }
 
-    const toleranceThreshold = 50;
+    return baseWidthRatio;
+  });
 
-    const rangeMin = gestureDeltaThresoldToEngage - toleranceThreshold;
-    return gestureDelta.value >= rangeMin;
+  // Using `withSpring` directly in `useAnimatedStyle` did not work,
+  // so we use it in a `useDerivedValue` here
+  const currentWidthRatioWithSpring = useDerivedValue(() =>
+    withSpring(currentWidthRatio.value, {
+      damping: 10,
+      mass: 0.5,
+    })
+  );
+
+  const currentItemWidth = useDerivedValue(() => {
+    return Math.max(
+      size,
+      currentActionsContainerWidth.value * currentWidthRatio.value
+    );
   });
 
   useAnimatedReaction(
@@ -109,14 +112,13 @@ export function SwipeableActionItemContainer({
     };
   });
 
-  const positionStyle = useAnimatedStyle(() => {
+  const itemPositionStyle = useAnimatedStyle(() => {
     const targetOffset = size * order;
-    const movingOffset =
-      (targetOffset + currentChunkWidth.value - size) * order;
+    const movingOffset = (targetOffset + currentItemWidth.value - size) * order;
 
     const displacementInterpolation = interpolate(
       gestureDelta.value,
-      [0, totalWidth, currentTotalWidth.value],
+      [0, totalWidth, currentActionsContainerWidth.value],
       position === 'right'
         ? [size, -targetOffset, -movingOffset]
         : [-size, targetOffset, movingOffset]
@@ -127,38 +129,10 @@ export function SwipeableActionItemContainer({
     };
   });
 
-  const numberOfActionsInTotal = totalWidth / size;
-  const currentItemWidth = useDerivedValue(() => {
-    if (isEngaged.value) {
-      return currentTotalWidth.value;
-    }
-
-    const sizeInterpolation = interpolate(
-      gestureDelta.value,
-      [0, totalWidth, totalWidth + size],
-      [size, size, size + size / numberOfActionsInTotal]
-    );
-
-    return sizeInterpolation;
-  });
-
-  const sizeStyle = useAnimatedStyle(() => {
-    if (isEngaged.value) {
-      if (gestureDelta.value > gestureDeltaThresoldToEngage + 25) {
-        return {
-          width: currentItemWidth.value,
-        };
-      }
-
-      return {
-        width: withSpring(currentItemWidth.value, { damping: 10, mass: 0.1 }),
-      };
-    }
-
+  const itemWidthStyle = useAnimatedStyle(() => {
     return {
-      width: willEngage.value
-        ? withSpring(currentItemWidth.value, { damping: 10, mass: 0.1 })
-        : currentItemWidth.value,
+      width:
+        currentActionsContainerWidth.value * currentWidthRatioWithSpring.value,
     };
   });
 
@@ -201,7 +175,12 @@ export function SwipeableActionItemContainer({
       onPress={onPress}
       activeOpacity={0.25}
       disallowInterruption={!!onPress}
-      style={[styles.container, positionStyle, sizeStyle, { zIndex: -order }]}
+      style={[
+        styles.container,
+        itemPositionStyle,
+        itemWidthStyle,
+        { zIndex: -order },
+      ]}
     >
       <Animated.View style={StyleSheet.absoluteFill}>
         {renderFn()}
