@@ -1,5 +1,4 @@
-import MaskedView from '@react-native-masked-view/masked-view';
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { BorderlessButton, RectButton } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,9 +8,13 @@ import Animated, {
   withSpring,
   interpolate,
   useAnimatedReaction,
+  withTiming,
+  withDelay,
 } from 'react-native-reanimated';
 
 import type { SwipeableActionItemRender } from './Swipeable';
+
+const BASE_BG_CIRCLE_SIZE = 128;
 
 const AnimatedBorderlessButton =
   Animated.createAnimatedComponent(BorderlessButton);
@@ -47,6 +50,8 @@ export function SwipeableActionItemContainer({
   totalWidth,
   onPress,
 }: SwipeableActionItemContainerProps) {
+  const [selfHeight, setSelfHeight] = useState(1);
+
   const gestureDeltaThresoldToEngage = totalWidth + engageThreshold;
 
   const currentTotalWidth = useDerivedValue(() => {
@@ -123,17 +128,9 @@ export function SwipeableActionItemContainer({
   });
 
   const numberOfActionsInTotal = totalWidth / size;
-  const sizeStyle = useAnimatedStyle(() => {
+  const currentItemWidth = useDerivedValue(() => {
     if (isEngaged.value) {
-      if (gestureDelta.value > gestureDeltaThresoldToEngage + 25) {
-        return {
-          width: currentTotalWidth.value,
-        };
-      }
-
-      return {
-        width: withSpring(currentTotalWidth.value, { damping: 10, mass: 0.1 }),
-      };
+      return currentTotalWidth.value;
     }
 
     const sizeInterpolation = interpolate(
@@ -142,31 +139,58 @@ export function SwipeableActionItemContainer({
       [size, size, size + size / numberOfActionsInTotal]
     );
 
+    return sizeInterpolation;
+  });
+
+  const sizeStyle = useAnimatedStyle(() => {
+    if (isEngaged.value) {
+      if (gestureDelta.value > gestureDeltaThresoldToEngage + 25) {
+        return {
+          width: currentItemWidth.value,
+        };
+      }
+
+      return {
+        width: withSpring(currentItemWidth.value, { damping: 10, mass: 0.1 }),
+      };
+    }
+
     return {
       width: willEngage.value
-        ? withSpring(sizeInterpolation, { damping: 10, mass: 0.1 })
-        : sizeInterpolation,
+        ? withSpring(currentItemWidth.value, { damping: 10, mass: 0.1 })
+        : currentItemWidth.value,
     };
   });
 
-  const sqrt2 = Math.SQRT2;
-  const backgroundCircleSizeStyle = useAnimatedStyle(() => {
+  const engagedCircleTransforms = useAnimatedStyle(() => {
     const circleSize = (() => {
       if (isEngaged.value) {
-        return withSpring(currentTotalWidth.value * sqrt2, {
-          damping: 25,
-          mass: 1,
-        });
+        return currentItemWidth.value * Math.SQRT2;
       }
 
-      return withSpring(0, { damping: 25, mass: 1 });
+      return 0;
     })();
 
     return {
-      width: circleSize,
-      height: circleSize,
+      transform: [
+        { translateX: currentItemWidth.value / 2 - BASE_BG_CIRCLE_SIZE / 2 },
+        { translateY: selfHeight / 2 - BASE_BG_CIRCLE_SIZE / 2 },
+        {
+          scale: withSpring(circleSize / BASE_BG_CIRCLE_SIZE, {
+            damping: 25,
+            mass: 1,
+          }),
+        },
+      ],
     };
   });
+
+  const engagedViewOpacity = useAnimatedStyle(() => ({
+    opacity: withDelay(
+      isEngaged.value ? 0 : 300,
+      withTiming(isEngaged.value ? 1 : 0, { duration: 100 })
+    ),
+  }));
 
   const ButtonComponent =
     Platform.OS === 'android' ? AnimatedRectButton : AnimatedBorderlessButton;
@@ -183,19 +207,19 @@ export function SwipeableActionItemContainer({
         {renderFn()}
       </Animated.View>
       {renderEngagedFn && (
-        <MaskedView
-          style={styles.maskView}
-          maskElement={
-            <View style={styles.maskView}>
-              <Animated.View
-                style={[styles.maskElement, backgroundCircleSizeStyle]}
-              />
-            </View>
-          }
-        >
-          <View style={[styles.engagedBackground, { backgroundColor }]} />
-          <View style={[StyleSheet.absoluteFill]}>{renderEngagedFn()}</View>
-        </MaskedView>
+        <View style={[styles.engagedViewContainer]}>
+          <Animated.View
+            renderToHardwareTextureAndroid
+            style={[
+              styles.circleBackground,
+              engagedCircleTransforms,
+              { backgroundColor },
+            ]}
+          />
+          <Animated.View style={[StyleSheet.absoluteFill, engagedViewOpacity]}>
+            {renderEngagedFn()}
+          </Animated.View>
+        </View>
       )}
       {order > 0 && (
         <Animated.View
@@ -206,6 +230,10 @@ export function SwipeableActionItemContainer({
           ]}
         />
       )}
+      <View
+        style={StyleSheet.absoluteFill}
+        onLayout={(event) => setSelfHeight(event.nativeEvent.layout.height)}
+      />
     </ButtonComponent>
   );
 }
@@ -232,18 +260,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: undefined,
   },
-  engagedBackground: {
+  circleBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: BASE_BG_CIRCLE_SIZE,
+    height: BASE_BG_CIRCLE_SIZE,
+    borderRadius: BASE_BG_CIRCLE_SIZE / 2,
+  },
+  engagedViewContainer: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 4,
-  },
-  maskElement: {
-    borderRadius: 999,
-    backgroundColor: 'white',
-  },
-  maskView: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
 });
