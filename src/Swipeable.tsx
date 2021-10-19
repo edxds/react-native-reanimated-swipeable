@@ -69,6 +69,17 @@ const _Swipeable = React.forwardRef<SwipeableHandle, SwipeableProps>(
       [minWidthLeft, minWidthRight]
     );
 
+    const snapPointsWhenOpen = useMemo(
+      () => [
+        minWidthLeft ? selfWidth : 0,
+        minWidthLeft,
+        0,
+        -minWidthRight,
+        -(minWidthRight ? selfWidth : 0),
+      ],
+      [minWidthLeft, minWidthRight, selfWidth]
+    );
+
     const translationX = useSharedValue(0);
     const offsetX = useSharedValue(0);
 
@@ -113,8 +124,8 @@ const _Swipeable = React.forwardRef<SwipeableHandle, SwipeableProps>(
         const snapPointsAccountingForOffset = isNotOffset
           ? snapPoints
           : isOffsetToTheRight
-          ? snapPoints.slice(0, -1)
-          : snapPoints.slice(1);
+          ? snapPointsWhenOpen.slice(0, -2)
+          : snapPointsWhenOpen.slice(2);
 
         const targetPosition = (() => {
           if (didEngageLeft.value) {
@@ -150,12 +161,13 @@ const _Swipeable = React.forwardRef<SwipeableHandle, SwipeableProps>(
         offsetX.value = targetPosition;
       },
       [
-        didEngageLeft.value,
-        didEngageRight.value,
+        didEngageLeft,
+        didEngageRight,
         offsetX,
         onDidNotify,
         selfWidth,
         snapPoints,
+        snapPointsWhenOpen,
         translationX,
       ]
     );
