@@ -152,7 +152,7 @@ export function SwipeableActionItemContainer({
         {
           scale: withSpring(circleSize / BASE_BG_CIRCLE_SIZE, {
             damping: 25,
-            mass: 1,
+            mass: isEngaged.value ? 1 : 0.25,
           }),
         },
       ],
@@ -161,7 +161,7 @@ export function SwipeableActionItemContainer({
 
   const engagedViewOpacity = useAnimatedStyle(() => ({
     opacity: withDelay(
-      isEngaged.value ? 0 : 300,
+      isEngaged.value ? 0 : 150,
       withTiming(isEngaged.value ? 1 : 0, { duration: 100 })
     ),
   }));
